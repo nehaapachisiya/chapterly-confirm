@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Email confirmed — Study Companion</title>
+<!--
+  Where a parent lands after tapping "Confirm my email address".
+
+  WHY THIS PAGE EXISTS
+
+  Supabase sends the confirmation link to its own /auth/v1/verify endpoint,
+  which confirms the account and then redirects to `site_url`. Until 2026-09-17
+  that was `http://localhost:3000` — a Supabase default pointing at a port
+  nothing in this project serves — so a parent would have confirmed their
+  account correctly and then been shown "This site can't be reached": a broken
+  page immediately after a success, which reads as failure. It was then pointed
+  at localhost:8081, which is right for the build machine and equally wrong for
+  a parent holding a phone.
+
+  This is the real answer, hosted on the domain the mail comes from.
+
+  IT MUST NOT ALWAYS SAY "CONFIRMED"
+
+  Supabase redirects here on failure too, with the reason in the URL fragment:
+  an expired link, a reused link, a cancelled one. A page that says "Your email
+  is confirmed" regardless of what happened is a page that lies to the one
+  person who most needs to be told the truth. So it reads the fragment and
+  branches, and the failure text says what to do next rather than only what went
+  wrong.
+
+  THE FRAGMENT IS CLEARED
+
+  On success Supabase puts the session tokens in the URL fragment. Fragments are
+  never sent to a server, so they do not reach GitHub Pages — but they do sit in
+  the address bar, in the back-button history, and in anything the parent might
+  screenshot or paste. `history.replaceState` removes them as soon as they have
+  been read.
+
+  NOTHING LOADS FROM THE NETWORK
+
+  No font, no image, no analytics, no framework. Same discipline as the email
+  templates: an education product for children has no business measuring who
+  opened what, and a page with no third-party requests cannot leak a referrer.
+-->
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --border: #e4e7ec;
+    --ink: #101828;
+    --muted: #475467;
+    --faint: #98a2b3;
+    --brand: #4f5ae0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1116;
+      --card: #171a21;
+      --border: #2c3242;
+      --ink: #f2f4f7;
+      --muted: #a0a7bc;
+      --faint: #667085;
+      --brand: #8d97f5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+  }
+  main {
+    width: 100%;
+    max-width: 480px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 24px;
+    margin-top: 32px;
+  }
+  .eyebrow {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--brand);
+  }
+  h1 { margin: 0 0 14px; font-size: 24px; line-height: 1.25; }
+  p { margin: 0 0 14px; color: var(--muted); }
+  .tick {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--brand); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 700; margin-bottom: 18px;
+  }
+  .tick.bad { background: #b42318; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 22px 0 16px; }
+  .small { font-size: 13px; color: var(--faint); margin: 0; }
+  a { color: var(--brand); }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">STUDY COMPANION</p>
+  <div class="tick" id="mark" aria-hidden="true">✓</div>
+  <h1 id="headline">Your email is confirmed</h1>
+  <div id="body">
+    <p>You can close this page, open the Study Companion app, and sign in.</p>
+  </div>
+
+  <hr />
+  <p class="small">
+    A closed beta for about thirty families. Anything wrong, or anything that
+    worries you: <a href="mailto:studygrievance@gmail.com">studygrievance@gmail.com</a>.
+  </p>
+</main>
+
+<script>
+  (function () {
+    // Supabase reports failure in the fragment, and sometimes in the query.
+    var frag = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    var query = new URLSearchParams(window.location.search);
+    var code = frag.get('error_code') || query.get('error_code') || '';
+    var failed = Boolean(frag.get('error') || query.get('error') || code);
+
+    // Read first, then strip: tokens and error details should not linger in the
+    // address bar, the back stack, or a screenshot.
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (!failed) return;
+
+    // Plain sentences, chosen by what actually went wrong. "otp_expired" covers
+    // both an old link and one that was already used, which are the two cases a
+    // parent will actually hit.
+    var expired = /expired|invalid/i.test(code);
+    var headline = expired ? 'That link has expired' : 'That link did not work';
+    var explain = expired
+      ? 'Confirmation links last one hour and work once. This one has been used already, or it is older than that.'
+      : 'We could not confirm your email address with that link.';
+
+    document.getElementById('mark').textContent = '!';
+    document.getElementById('mark').className = 'tick bad';
+    document.getElementById('headline').textContent = headline;
+    document.getElementById('body').innerHTML =
+      '<p>' + explain + '</p>' +
+      '<p>Open the Study Companion app and try to sign in. If it still will not let you in, ' +
+      'create your account again with the same email address and we will send a fresh link.</p>' +
+      '<p>Nothing is lost, and you have not been charged anything — this is a free beta.</p>';
+  })();
+</script>
+</body>
+</html>
